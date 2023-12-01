@@ -1,0 +1,49 @@
+# new version OF runBart function, updated from our baseline model for improved speed and performance
+# testing and trial and error showed that removing the component of the function that calculated a unique maxlength for every summary sped up prediction generation significantly
+# in the baseline model we had issues with large numbers of NaN empty summary predictions,
+# through some research, testing, and trial and error we were able to find a configuration for the encode and generate() steps that corrected this issue
+
+def runBart(df):
+
+    # Empty lists for predictions and performance timestamps
+    predictions = []
+    times = []
+
+    # For the number of rows in the given dataframe
+    for i in range(len(df)):
+        # Create a start timestamp
+        start = time.perf_counter()
+
+        # Create a document instance using the row's entry for the stringified document
+        doc = df.iloc[i]["document"]
+
+        # Encoding inputs using BART tokenizer
+        inputs = tokenizer.batch_encode_plus(doc, return_tensors='pt', max_length=1024, truncation=True)['input_ids']
+
+        # Generate vectorized summary using encoded inputs
+        summary_ids = model.generate(inputs, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
+
+        # Decode the summary into a human-readable format
+        summary = tokenizer.decode(summary_ids.squeeze(), skip_special_tokens=True)
+
+        # Append the predicted summary to a list of predictions
+        predictions.append(summary)
+
+        # Create an end timestamp
+        end = time.perf_counter()
+
+        # Calculate computation speed
+        speed = end - start
+
+        # Append computation speed to list
+        times.append(speed)
+
+        # If the iteration is a multiple of 1000
+        if i % 1000 == 0:
+            # Calculate the average computation time per row so far and print
+            avg_time = sum(times) / len(times)
+            print("Average time per row at", i, "row:", avg_time)
+
+    # Create a new column for the dataframe using the predictions generated and return the modified dataframe
+    df["BART_Pred"] = predictions
+    return df
